@@ -136,4 +136,11 @@ code {
     max-width: 30%;
 }
 
+/* Button zoom */
+.zoom-button {
+    transition: transform 0.3s ease;
+}
 
+.zoom-button:hover {
+    transform: scale(1.2);
+}
