@@ -2,6 +2,90 @@
 
 <PageTitle>Home</PageTitle>
 
-<h1>Hello, world!</h1>
+<div class="container mt-4">
+    <div class="row g-3">
+        @foreach (var note in notes)
+        {
+            <div class="col-md-4">
+                <div class="card note-card" style="cursor: pointer;">
+                    <div class="card-body">
+                        <h5 class="card-title fw-bold fs-5">@note.Title</h5>
+                        <p class="card-text mt-3">@note.Content</p>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
 
-Welcome to your new app.
+<!-- Button -->
+<button class="btn btn-primary btn-lg rounded-circle shadow position-fixed"
+        style="bottom: 20px; right: 20px; width: 60px; height: 60px;"
+        @onclick="ShowModal">
+    <span class="fs-4">+</span>
+</button>
+
+<!-- Popup Modal -->
+<div class="modal modal-fade" tabindex="-1" style="display: @(isModalVisible ? "block" : "none");">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Create a note</h5>
+                <button type="button" class="btn-close" @onclick="HideModal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <input type="text" id="noteTitle" class="form-control border" @bind="noteTitle" placeholder="Title..." />
+                </div>
+                <div class="mb-3">
+                    <textarea id="noteContent" class="form-control border" rows="4" @bind="noteContent" placeholder="Content..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" @onclick="AddNote">Add</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string noteTitle = string.Empty;
+    private string noteContent = string.Empty;
+
+    private List<Note> notes = new List<Note>();
+
+    private bool isModalVisible = false;
+
+    private void ShowModal()
+    {
+        isModalVisible = true;
+    }
+
+    private void HideModal()
+    {
+        isModalVisible = false;
+    }
+
+    private void AddNote()
+    {
+        if (!string.IsNullOrWhiteSpace(noteTitle) || !string.IsNullOrWhiteSpace(noteContent))
+        {
+            notes.Add(new Note
+                {
+                    Title = noteTitle,
+                    Content = noteContent
+                });
+
+            noteTitle = string.Empty;
+            noteContent = string.Empty;
+
+            HideModal();
+        }
+    }
+
+    private class Note
+    {
+        public string Title { get; set; } = string.Empty;
+        public string Content { get; set; } = string.Empty;
+    }
+}
