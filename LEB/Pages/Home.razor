@@ -1,10 +1,11 @@
 ﻿@using Blazored.TextEditor
+@using Newtonsoft.Json;
 
 @page "/"
 
 <PageTitle>Home</PageTitle>
 
-<button @onclick="GetEditorContent">Get HTML Content</button>
+@* <button @onclick="GetEditorContent">Get HTML Content</button> *@
 
 <!-- Notes -->
 <div class="container mt-4">
@@ -23,33 +24,82 @@
     </div>
 </div>
 
-<!-- Add Button -->
+<!-- Create note button (+) -->
 <button type="button" class="btn btn-primary btn-lg rounded-circle shadow position-fixed zoom-button"
         data-bs-toggle="modal" data-bs-target="#myModal"
         style="bottom: 20px; right: 20px; width: 60px; height: 60px;">
     <span class="fs-4">+</span>
 </button>
 
+<p>@editorContent</p>
+
 <!-- Popup Modal -->
 <div id="myModal" class="modal fade">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-dialog-centered modal-md">
         <div class="modal-content">
-            <div class="modal-header">
-                <button type="button" class="btn-close" data-bs-toggle="modal" data-bs-target="#myModal"></button>
-            </div>
-            <div class="modal-body">
-                    <p >@editorContent</p>
-                    <BlazoredTextEditor BottomToolbar="true" @ref="@richEditor" ToolbarCSSClass="rounded colored-border" ToolbarCssStyle="background: blackgrey">
+            <div class="modal-body p-0 d-flex flex-column">
+                <!-- Editor -->
+                <div class="editor-container flex-grow-1 d-flex flex-column">
+                    <BlazoredTextEditor BottomToolbar="true" @ref="@richEditor"
+                                        ToolbarCSSClass="rounded colored-border"
+                                        ToolbarCssStyle="background: blackgrey; width: 100%">
                         <ToolbarContent>
-                            @((MarkupString)toolbar)
+                            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                                <!-- Group 1 - Header and Text Formatting -->
+                                <div class="toolbar-group">
+                                    <select class="ql-header">
+                                        <option selected=""></option>
+                                        <option value="1"></option>
+                                        <option value="2"></option>
+                                        <option value="3"></option>
+                                        <option value="4"></option>
+                                        <option value="5"></option>
+                                    </select>
+                                    <span class="ql-formats">
+                                        <button class="ql-bold"></button>
+                                        <button class="ql-italic"></button>
+                                        <button class="ql-underline"></button>
+                                        <button class="ql-strike"></button>
+                                    </span>
+                                </div>
+                                <div class="separator"></div>
+                                <!-- Group 2 - Text Color and Background -->
+                                <div class="toolbar-group">
+                                    <span class="ql-formats">
+                                        <select class="ql-color"></select>
+                                        <select class="ql-background"></select>
+                                    </span>
+                                </div>
+                                <div class="separator"></div>
+                                <!-- Group 3 - List Buttons -->
+                                <div class="toolbar-group">
+                                    <span class="ql-formats">
+                                        <button class="ql-list" value="ordered"></button>
+                                        <button class="ql-list" value="bullet"></button>
+                                    </span>
+                                </div>
+                                <div class="separator"></div>
+                                <!-- Group 4 - Link Button -->
+                                <div class="toolbar-group">
+                                    <span class="ql-formats">
+                                        <button class="ql-link"></button>
+                                    </span>
+                                </div>
+                                <!-- Group 5 - Add Button (at the far right) -->
+                                <button type="button" class="btn btn-primary text-white btn-add-animation"
+                                        @onclick="AddNote" data-bs-toggle="modal" data-bs-target="#myModal"
+                                        style="padding: 0 10px; display: inline-block; width: auto; vertical-align: middle;">
+                                    Add
+                                </button>
+
+
+                            </div>
                         </ToolbarContent>
                         <EditorContent>
                             @((MarkupString)body)
                         </EditorContent>
                     </BlazoredTextEditor>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#myModal" @onclick="AddNote">Add</button>
+                </div>
             </div>
         </div>
     </div>
@@ -61,20 +111,41 @@
 
     private List<Note> notes = new List<Note>();
 
-    private void AddNote()
+    private async Task AddNote()
     {
-        if (!string.IsNullOrWhiteSpace(noteTitle) || !string.IsNullOrWhiteSpace(noteContent))
-        {
-            notes.Add(new Note
-                {
-                    Title = noteTitle,
-                    Content = noteContent
-                });
+        // Extract the JSON content from the editor
+        var contentJson = await richEditor.GetContent();
 
-            noteTitle = string.Empty;
-            noteContent = string.Empty;
+        // Deserialize the JSON content
+        var content = JsonConvert.DeserializeObject<DeltaContent>(contentJson);
+
+        // Initialize variables
+        string noteTitle = "Untitled";
+        string noteContent = string.Empty;
+
+        // Check if the content is valid
+        if (content != null && content.ops != null && content.ops.Count > 0)
+        {
+            // The title is the first insert before the first \n
+            noteTitle = content.ops.FirstOrDefault()?.insert?.Trim() ?? "Untitled";
+
+            // The content is everything after the first \n
+            var contentOps = content.ops.Skip(1).Where(op => op.insert != null).Select(op => op.insert).ToList();
+            noteContent = string.Join("", contentOps).Trim();
         }
+
+        // Add the note
+        notes.Add(new Note
+            {
+                Title = noteTitle,
+                Content = noteContent
+            });
+
+        // Reset the values for the next addition
+        noteTitle = string.Empty;
+        noteContent = string.Empty;
     }
+
 
     private class Note
     {
@@ -82,44 +153,24 @@
         public string Content { get; set; } = string.Empty;
     }
 
-    BlazoredTextEditor richEditor = default!;
-    string toolbar = "";
-    string body = """"
-            <h4>Title</h4>
-            <a Content...</a>
-            """";
-    string editorContent = "";
-
-    protected override void OnInitialized()
+    public class DeltaContent
     {
-        toolbar = """"
-            <select class="ql-header">
-                <option selected=""></option>
-                <option value="1"></option>
-                <option value="2"></option>
-                <option value="3"></option>
-                <option value="4"></option>
-                <option value="5"></option>
-            </select>
-            <span class="ql-formats">
-                <button class="ql-bold"></button>
-                <button class="ql-italic"></button>
-                <button class="ql-underline"></button>
-                <button class="ql-strike"></button>
-            </span>
-            <span class="ql-formats">
-                <select class="ql-color"></select>
-                <select class="ql-background"></select>
-            </span>
-            <span class="ql-formats">
-                <button class="ql-list" value="ordered"></button>
-                <button class="ql-list" value="bullet"></button>
-            </span>
-            <span class="ql-formats">
-                <button class="ql-link"></button>
-            </span>
-            """";
+        public List<DeltaOp> ops { get; set; } = new List<DeltaOp>();
     }
+
+    public class DeltaOp
+    {
+        public string insert { get; set; } = string.Empty;
+        public Dictionary<string, object> attributes { get; set; } = new Dictionary<string, object>();
+    }
+
+    BlazoredTextEditor richEditor = default!;
+    string body = """"
+        <h1><strong>Title</strong></h1>
+        <p><br></p>
+        <p>Content...</p>
+    """";
+    string editorContent = "";
 
     // Method to get the content from the editor in HTML format
     private async Task GetEditorContent()
@@ -127,4 +178,3 @@
         editorContent = await richEditor.GetHTML();
     }
 }
-

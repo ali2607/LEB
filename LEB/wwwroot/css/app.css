@@ -103,40 +103,20 @@ code {
 }
 
 
-/* Card styles */
+/* ===== NOTES LIST ===== */
 .note-card {
     box-shadow: none;
     transition: box-shadow 0.3s ease, border-radius 0.3s ease;
     border-radius: 15px;
 }
-
 .note-card:hover {
     box-shadow: 0 0px 10px rgba(0, 0, 0, 0.2);
 }
-
-/* Modal styles */
-.modal-body {
-    padding: 20px;
-}
-
-.border {
-    border: 1px solid #000; 
-    background-color: #fff; 
-    border-radius: 5px; 
-    padding: 10px;
-}
-
-.border:focus {
-    border-color: #007bff; 
-    box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
-}
-
-/* Restrict maximum card width */
 .row.g-3 > .col-md-4 {
     max-width: 30%;
 }
 
-/* Button zoom */
+/* ===== BUTTON FOR CREATING NOTE ===== */
 .zoom-button {
     transition: transform 0.3s ease;
 }
@@ -144,6 +124,59 @@ code {
 .zoom-button:hover {
     transform: scale(1.2);
 }
+
+/* ===== MODAL ===== */
+.modal-dialog.modal-md {
+    max-width: 600px;
+    width: 60%;
+    position: relative;
+    transition: box-shadow 0.3s ease;
+}
+.modal.show .modal-content {
+    box-shadow: 0 0px 20px rgba(0, 0, 0, 0.2); /* Ombre subtile autour du modal */
+    transition: box-shadow 0.3s ease; /* Transition douce pour l'ombre */
+}
+.modal-body {
+    flex-grow: 1;
+    padding: 20px;
+}
+.editor-container {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+}
+.blazored-text-editor {
+    flex-grow: 1;
+    height: 100%;
+    width: 100%;
+    font-size: 50px;
+}
+
+/* ===== TOOLBAR ===== */
+.toolbar-group {
+    display: flex;
+    align-items: center;
+    margin-right: -10px;
+}
+.separator {
+    width: 1px;
+    background-color: #ccc;
+    height: 25px;
+}
+
+/* ===== ADD BUTTON ===== */
+.btn-add-animation {
+    background-color: #000000 !important;
+    color: white !important;
+    border-radius: 3px;
+    transition: transform 0.3s ease, background-color 0.3s ease;
+}
+.btn-add-animation:hover {
+    transform: scale(1.1);
+    background-color: #3d3d3d !important;
+}
+
+
 
 
 
