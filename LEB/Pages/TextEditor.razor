@@ -4,73 +4,42 @@
     .rounded {
         border-radius: 8px;
     }
+
     .colored-border {
-        border: 4px solid red !important;
+        border: 4px solid black !important;
     }
 </style>
 
 <h1>Blazored.TextEditor Usage Examples</h1>
 
-<h3>Basic Example</h3>
-<BlazoredTextEditor
-    @ref="@richEditor">
-    <ToolbarContent>
-        @((MarkupString) toolbar)
-    </ToolbarContent>
-    <EditorContent>
-        @((MarkupString) body)
-    </EditorContent>
-</BlazoredTextEditor>
-<br/>
-<br/>
-
-<h3>Show the Toolbar Below the Editor</h3>
-<BlazoredTextEditor
-    BottomToolbar="true"
-    @ref="@richEditor">
-    <ToolbarContent>
-        @((MarkupString) toolbar)
-    </ToolbarContent>
-    <EditorContent>
-        @((MarkupString) body)
-    </EditorContent>
-</BlazoredTextEditor>
-<br/>
-<br/>
-
 <h3>Styled Toolbar</h3>
-<BlazoredTextEditor
-    @ref="@richEditor"
-    ToolbarCSSClass="rounded colored-border"
-    ToolbarCssStyle="background: lightpink">
+<BlazoredTextEditor @ref="@richEditor"
+                    ToolbarCSSClass="rounded colored-border"
+                    ToolbarCssStyle="background: lightGrey">
     <ToolbarContent>
-        @((MarkupString) toolbar)
+        @((MarkupString)toolbar)
     </ToolbarContent>
     <EditorContent>
-        @((MarkupString) body)
+        @((MarkupString)body)
     </EditorContent>
 </BlazoredTextEditor>
-<br/>
-<br/>
 
-<h3>Styled Editor</h3>
-<BlazoredTextEditor
-    EditorCSSClass="rounded colored-border"
-    EditorCssStyle="padding: 10px; background: lightpink"
-    @ref="@richEditor">
-    <ToolbarContent>
-        @((MarkupString) toolbar)
-    </ToolbarContent>
-    <EditorContent>
-        @((MarkupString) body)
-    </EditorContent>
-</BlazoredTextEditor>
+<br />
+<br />
+
+<h3>Submitted Content:</h3>
+<p>@editorContent</p>
+
+<br />
+
+<button @onclick="GetEditorContent">Get HTML Content</button>
 
 @code
 {
     BlazoredTextEditor richEditor = default!;
-    string toolbar = """"...markup here..."""";
-    string body = """"...markup here..."""";
+    string toolbar = "";
+    string body = "<h4>This Toolbar works with HTML</h4>";
+    string editorContent = "";
 
     protected override void OnInitialized()
     {
@@ -101,10 +70,12 @@
                 <button class="ql-link"></button>
             </span>
             """";
+    }
 
-        body = """"
-            <h4>This Toolbar works with HTML</h4>
-            <a href="https://BlazorHelpWebsite.com">BlazorHelpWebsite.com</a>
-            """";
+    // Method to get the content from the editor in HTML format
+    private async Task GetEditorContent()
+    {
+        editorContent = await richEditor.GetHTML();
     }
 }
+    
