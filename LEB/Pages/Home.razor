@@ -1,6 +1,10 @@
-﻿@page "/"
+﻿@using Blazored.TextEditor
+
+@page "/"
 
 <PageTitle>Home</PageTitle>
+
+<button @onclick="GetEditorContent">Get HTML Content</button>
 
 <!-- Notes -->
 <div class="container mt-4">
@@ -31,16 +35,18 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Create a note</h5>
                 <button type="button" class="btn-close" data-bs-toggle="modal" data-bs-target="#myModal"></button>
             </div>
             <div class="modal-body">
-                <div class="mb-3">
-                    <input type="text" id="noteTitle" class="form-control border" @bind="noteTitle" placeholder="Title..." />
-                </div>
-                <div class="mb-3">
-                    <textarea id="noteContent" class="form-control border" rows="4" @bind="noteContent" placeholder="Content..."></textarea>
-                </div>
+                    <p >@editorContent</p>
+                    <BlazoredTextEditor BottomToolbar="true" @ref="@richEditor" ToolbarCSSClass="rounded colored-border" ToolbarCssStyle="background: blackgrey">
+                        <ToolbarContent>
+                            @((MarkupString)toolbar)
+                        </ToolbarContent>
+                        <EditorContent>
+                            @((MarkupString)body)
+                        </EditorContent>
+                    </BlazoredTextEditor>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#myModal" @onclick="AddNote">Add</button>
@@ -74,6 +80,51 @@
     {
         public string Title { get; set; } = string.Empty;
         public string Content { get; set; } = string.Empty;
+    }
+
+    BlazoredTextEditor richEditor = default!;
+    string toolbar = "";
+    string body = """"
+            <h4>Title</h4>
+            <a Content...</a>
+            """";
+    string editorContent = "";
+
+    protected override void OnInitialized()
+    {
+        toolbar = """"
+            <select class="ql-header">
+                <option selected=""></option>
+                <option value="1"></option>
+                <option value="2"></option>
+                <option value="3"></option>
+                <option value="4"></option>
+                <option value="5"></option>
+            </select>
+            <span class="ql-formats">
+                <button class="ql-bold"></button>
+                <button class="ql-italic"></button>
+                <button class="ql-underline"></button>
+                <button class="ql-strike"></button>
+            </span>
+            <span class="ql-formats">
+                <select class="ql-color"></select>
+                <select class="ql-background"></select>
+            </span>
+            <span class="ql-formats">
+                <button class="ql-list" value="ordered"></button>
+                <button class="ql-list" value="bullet"></button>
+            </span>
+            <span class="ql-formats">
+                <button class="ql-link"></button>
+            </span>
+            """";
+    }
+
+    // Method to get the content from the editor in HTML format
+    private async Task GetEditorContent()
+    {
+        editorContent = await richEditor.GetHTML();
     }
 }
 
