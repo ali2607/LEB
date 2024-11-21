@@ -1,7 +1,5 @@
 ﻿@page "/"
 
-<PageTitle>Home</PageTitle>
-
 <!-- Notes -->
 <div class="container mt-4">
     <div class="row g-3">
@@ -53,18 +51,68 @@
     private string noteTitle = string.Empty;
     private string noteContent = string.Empty;
 
-    private List<Note> notes = new List<Note>();
+    private List<Note> notes = new();
 
-    private void AddNote()
+    // Path to JSON file
+    private readonly string jsonFilePath = "Data/notes.json";
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Load notes from JSON file when the component initializes
+        notes = await LoadNotesAsync();
+    }
+
+    private async Task<List<Note>> LoadNotesAsync()
+    {
+        try
+        {
+            if (!File.Exists(jsonFilePath))
+            {
+                // Create the JSON file if it doesn't exist
+                await SaveNotesAsync(new List<Note>());
+                return new List<Note>();
+            }
+
+            var json = await File.ReadAllTextAsync(jsonFilePath);
+            return JsonSerializer.Deserialize<List<Note>>(json) ?? new List<Note>();
+        }
+        catch (JsonException ex)
+        {
+            Console.WriteLine($"JSON is corrupted: {ex.Message}");
+            await SaveNotesAsync(new List<Note>()); // Reinitialize the file if corrupted
+            return new List<Note>();
+        }
+    }
+
+    private async Task SaveNotesAsync(List<Note> notesToSave)
+    {
+        try
+        {
+            var json = JsonSerializer.Serialize(notesToSave, new JsonSerializerOptions { WriteIndented = true });
+            await File.WriteAllTextAsync(jsonFilePath, json);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error writing to JSON: {ex.Message}");
+        }
+    }
+
+    private async Task AddNote()
     {
         if (!string.IsNullOrWhiteSpace(noteTitle) || !string.IsNullOrWhiteSpace(noteContent))
         {
-            notes.Add(new Note
+            var newNote = new Note
                 {
                     Title = noteTitle,
                     Content = noteContent
-                });
+                };
 
+            notes.Add(newNote);
+
+            // Save the updated notes to JSON
+            await SaveNotesAsync(notes);
+
+            // Clear inputs
             noteTitle = string.Empty;
             noteContent = string.Empty;
         }
@@ -76,4 +124,3 @@
         public string Content { get; set; } = string.Empty;
     }
 }
-
