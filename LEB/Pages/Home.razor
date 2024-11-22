@@ -12,8 +12,9 @@
     <div class="row g-3">
         @foreach (var note in notes)
         {
+            var index = notes.IndexOf(note);
             <div class="col-md-4">
-                <div class="card note-card" style="cursor: pointer;">
+                <div class="card note-card" style="cursor: pointer;" @onclick="() => EditNote(index)" data-bs-toggle="modal" data-bs-target="#myModal">
                     <div class="card-body">
                         <h5 class="card-title fw-bold fs-5">@note.Title</h5>
                         <p class="card-text mt-3">@note.Content</p>
@@ -26,7 +27,7 @@
 
 <!-- Create note button (+) -->
 <button type="button" class="btn btn-primary btn-lg rounded-circle shadow position-fixed zoom-button"
-        data-bs-toggle="modal" data-bs-target="#myModal"
+        @onclick="ResetEditor" data-bs-toggle="modal" data-bs-target="#myModal"
         style="bottom: 20px; right: 20px; width: 60px; height: 60px;">
     <span class="fs-4">+</span>
 </button>
@@ -85,18 +86,14 @@
                                         <button class="ql-link"></button>
                                     </span>
                                 </div>
-                                <!-- Group 5 - Add Button (at the far right) -->
                                 <button type="button" class="btn btn-primary text-white btn-add-animation"
-                                        @onclick="AddNote" data-bs-toggle="modal" data-bs-target="#myModal"
-                                        style="padding: 0 10px; display: inline-block; width: auto; vertical-align: middle;">
-                                    Add
+                                        @onclick="editingNoteIndex.HasValue ? SaveNote : AddNote"
+                                        data-bs-dismiss="modal" style="padding: 0 10px; display: inline-block; width: auto; vertical-align: middle;">
+                                    @(editingNoteIndex.HasValue ? "Save" : "Add")
                                 </button>
-
-
                             </div>
                         </ToolbarContent>
                         <EditorContent>
-                            @((MarkupString)body)
                         </EditorContent>
                     </BlazoredTextEditor>
                 </div>
@@ -110,7 +107,29 @@
     private string noteContent = string.Empty;
 
     private List<Note> notes = new List<Note>();
+    private int? editingNoteIndex = null;
 
+    private class Note
+    {
+        public string Title { get; set; } = string.Empty;
+        public string Content { get; set; } = string.Empty;
+    }
+
+    public class DeltaContent
+    {
+        public List<DeltaOp> ops { get; set; } = new List<DeltaOp>();
+    }
+
+    public class DeltaOp
+    {
+        public string insert { get; set; } = string.Empty;
+        public Dictionary<string, object> attributes { get; set; } = new Dictionary<string, object>();
+    }
+
+    /// <summary>
+    /// Add a note to the list
+    /// </summary>
+    /// <returns></returns>
     private async Task AddNote()
     {
         // Extract the JSON content from the editor
@@ -140,39 +159,73 @@
                 Title = noteTitle,
                 Content = noteContent
             });
-
-        // Reset the values for the next addition
-        noteTitle = string.Empty;
-        noteContent = string.Empty;
     }
 
-
-    private class Note
+    /// <summary>
+    /// Edit a note from the list
+    /// </summary>
+    /// <param name="index">index of the selected note</param>
+    /// <returns></returns>
+    private async Task EditNote(int index)
     {
-        public string Title { get; set; } = string.Empty;
-        public string Content { get; set; } = string.Empty;
+        var noteToEdit = notes[index];
+        editingNoteIndex = index;
+        body = $"<h1><strong>{noteToEdit.Title}</strong></h1><p><br></p><p>{noteToEdit.Content}</p>";
+        await Task.Delay(50);
+        await richEditor.LoadHTMLContent(body);
     }
 
-    public class DeltaContent
+    /// <summary>
+    /// Save the edited note
+    /// </summary>
+    /// <returns></returns>
+    private async Task SaveNote()
     {
-        public List<DeltaOp> ops { get; set; } = new List<DeltaOp>();
+        if (editingNoteIndex.HasValue)
+        {
+            // Obtenez le contenu édité
+            var contentJson = await richEditor.GetContent();
+            var content = JsonConvert.DeserializeObject<DeltaContent>(contentJson);
+
+            // Récupérez les nouvelles données
+            if (content != null && content.ops != null && content.ops.Count > 0)
+            {
+                var noteTitle = content.ops.FirstOrDefault()?.insert?.Trim() ?? "Untitled";
+                var contentOps = content.ops.Skip(1).Where(op => op.insert != null).Select(op => op.insert).ToList();
+                var noteContent = string.Join("", contentOps).Trim();
+
+                // Mettez à jour la note
+                notes[editingNoteIndex.Value] = new Note
+                    {
+                        Title = noteTitle,
+                        Content = noteContent
+                    };
+            }
+        }
+        // Réinitialisez l'état
+        editingNoteIndex = null;
+        body = "";
     }
 
-    public class DeltaOp
-    {
-        public string insert { get; set; } = string.Empty;
-        public Dictionary<string, object> attributes { get; set; } = new Dictionary<string, object>();
-    }
-
+    /// richEditor initialization
     BlazoredTextEditor richEditor = default!;
-    string body = """"
-        <h1><strong>Title</strong></h1>
-        <p><br></p>
-        <p>Content...</p>
-    """";
+    string? body = null;
+    string defaultBody = "<h1><strong>Title</strong></h1><p><br></p><p>Content...</p>";
     string editorContent = "";
 
-    // Method to get the content from the editor in HTML format
+    /// <summary>
+    /// Reset the editor to its default state
+    /// </summary>
+    private void ResetEditor()
+    {
+        richEditor.LoadHTMLContent(defaultBody);
+        editingNoteIndex = null;
+    }
+
+    /// <summary>
+    /// Get the content from the editor in HTML format
+    /// </summary>
+    /// <returns></returns>
     private async Task GetEditorContent()
     {
         editorContent = await richEditor.GetHTML();

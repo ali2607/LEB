@@ -109,9 +109,11 @@ code {
     transition: box-shadow 0.3s ease, border-radius 0.3s ease;
     border-radius: 15px;
 }
+
 .note-card:hover {
     box-shadow: 0 0px 10px rgba(0, 0, 0, 0.2);
 }
+
 .row.g-3 > .col-md-4 {
     max-width: 30%;
 }
@@ -132,19 +134,23 @@ code {
     position: relative;
     transition: box-shadow 0.3s ease;
 }
+
 .modal.show .modal-content {
-    box-shadow: 0 0px 20px rgba(0, 0, 0, 0.2); /* Ombre subtile autour du modal */
-    transition: box-shadow 0.3s ease; /* Transition douce pour l'ombre */
+    box-shadow: 0 0px 20px rgba(0, 0, 0, 0.2);
+    transition: box-shadow 0.3s ease;
 }
+
 .modal-body {
     flex-grow: 1;
     padding: 20px;
 }
+
 .editor-container {
     flex-grow: 1;
     display: flex;
     flex-direction: column;
 }
+
 .blazored-text-editor {
     flex-grow: 1;
     height: 100%;
@@ -158,6 +164,7 @@ code {
     align-items: center;
     margin-right: -10px;
 }
+
 .separator {
     width: 1px;
     background-color: #ccc;
@@ -166,11 +173,12 @@ code {
 
 /* ===== ADD BUTTON ===== */
 .btn-add-animation {
-    background-color: #000000 !important;
+    background-color: black !important;
     color: white !important;
     border-radius: 3px;
     transition: transform 0.3s ease, background-color 0.3s ease;
 }
+
 .btn-add-animation:hover {
     transform: scale(1.1);
     background-color: #3d3d3d !important;
