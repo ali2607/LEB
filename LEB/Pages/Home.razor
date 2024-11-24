@@ -1,5 +1,6 @@
 ﻿@using Blazored.TextEditor
 @using Newtonsoft.Json;
+@inject IJSRuntime JSRuntime
 
 @page "/"
 
@@ -9,28 +10,44 @@
 
 <!-- Notes -->
 <div class="container mt-4">
-    <div class="row g-3">
+    <div class="row g-3 justify-content-center">
         @foreach (var note in notes)
         {
             var index = notes.IndexOf(note);
             <div class="col-md-4">
-                <div class="card note-card" style="cursor: pointer;" @onclick="() => EditNote(index)" data-bs-toggle="modal" data-bs-target="#myModal">
+                <div class="card note-card" style="cursor: pointer;"
+                     @onclick="() => EditNote(index)" data-bs-toggle="modal" data-bs-target="#myModal">
                     <div class="card-body">
                         <h5 class="card-title fw-bold fs-5">@note.Title</h5>
                         <p class="card-text mt-3">@note.Content</p>
                     </div>
+                    <i class="fas fa-trash trash-icon no-toggle"
+                       @onclick="() => DeleteNote(index)"
+                       @onclick:stopPropagation="true"></i>
                 </div>
             </div>
         }
     </div>
 </div>
 
+
 <!-- Create note button (+) -->
 <button type="button" class="btn btn-primary btn-lg rounded-circle shadow position-fixed zoom-button"
         @onclick="ResetEditor" data-bs-toggle="modal" data-bs-target="#myModal"
         style="bottom: 20px; right: 20px; width: 60px; height: 60px;">
-    <span class="fs-4">+</span>
+    <i class="fas fa-plus fs-4"></i>
 </button>
+
+<!-- Background text and arrow when no notes are present -->
+@if (!notes.Any())
+{
+    <div class="no-notes-overlay">
+        <div class="text-arrow-container">
+            <p class="no-notes-text">Create a note</p>
+            <img src="images/arrow.png" class="arrow-image" alt="arrow" />
+        </div>
+    </div>
+}
 
 <p>@editorContent</p>
 
@@ -126,8 +143,13 @@
         public Dictionary<string, object> attributes { get; set; } = new Dictionary<string, object>();
     }
 
+    BlazoredTextEditor richEditor = default!;
+    string? body = null;
+    string defaultBody = "<h1><strong>Title</strong></h1><p><br></p><p>Content...</p>";
+    string editorContent = "";
+
     /// <summary>
-    /// Add a note to the list
+    /// Add a new note
     /// </summary>
     /// <returns></returns>
     private async Task AddNote()
@@ -162,9 +184,9 @@
     }
 
     /// <summary>
-    /// Edit a note from the list
+    /// Edit an existing note
     /// </summary>
-    /// <param name="index">index of the selected note</param>
+    /// <param name="index"></param>
     /// <returns></returns>
     private async Task EditNote(int index)
     {
@@ -176,7 +198,7 @@
     }
 
     /// <summary>
-    /// Save the edited note
+    /// Save the note
     /// </summary>
     /// <returns></returns>
     private async Task SaveNote()
@@ -207,14 +229,21 @@
         body = "";
     }
 
-    /// richEditor initialization
-    BlazoredTextEditor richEditor = default!;
-    string? body = null;
-    string defaultBody = "<h1><strong>Title</strong></h1><p><br></p><p>Content...</p>";
-    string editorContent = "";
+    /// <summary>
+    /// Delete a note
+    /// </summary>
+    /// <param name="index"></param>
+    /// <returns></returns>
+    private async Task DeleteNote(int index)
+    {
+        await EditNote(index);
+        notes.RemoveAt(index);
+        await Task.Delay(500);
+        await JSRuntime.InvokeVoidAsync("closeModal");
+    }
 
     /// <summary>
-    /// Reset the editor to its default state
+    /// Reset the editor
     /// </summary>
     private void ResetEditor()
     {
