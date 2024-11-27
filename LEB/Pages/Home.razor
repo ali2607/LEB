@@ -1,6 +1,8 @@
 ﻿@page "/"
+@using System.Net.Http.Json
+@inject HttpClient Http
 
-<!-- Notes -->
+<!-- Notes Display -->
 <div class="container mt-4">
     <div class="row g-3">
         @foreach (var note in notes)
@@ -10,6 +12,8 @@
                     <div class="card-body">
                         <h5 class="card-title fw-bold fs-5">@note.Title</h5>
                         <p class="card-text mt-3">@note.Content</p>
+                        <button class="btn btn-danger" @onclick="() => DeleteNote(note.Id)">Delete</button>
+                        <button class="btn btn-warning" @onclick="() => EditNote(note)">Edit</button>
                     </div>
                 </div>
             </div>
@@ -19,46 +23,49 @@
 
 <!-- Add Button -->
 <button type="button" class="btn btn-primary btn-lg rounded-circle shadow position-fixed zoom-button"
-        data-bs-toggle="modal" data-bs-target="#myModal"
+        @onclick="OpenCreateModal"
         style="bottom: 20px; right: 20px; width: 60px; height: 60px;">
     <span class="fs-4">+</span>
 </button>
 
-<!-- Popup Modal -->
-<div id="myModal" class="modal fade">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Create a note</h5>
-                <button type="button" class="btn-close" data-bs-toggle="modal" data-bs-target="#myModal"></button>
-            </div>
-            <div class="modal-body">
-                <div class="mb-3">
-                    <input type="text" id="noteTitle" class="form-control border" @bind="noteTitle" placeholder="Title..." />
+<!-- Popup Modal for Create/Edit -->
+@if (isModalVisible)
+{
+    <div class="modal fade show" tabindex="-1" style="display: block; background-color: rgba(0, 0, 0, 0.5);" aria-labelledby="myModalLabel" aria-hidden="false">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="myModalLabel">@modalTitle</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModal" aria-label="Close"></button>
                 </div>
-                <div class="mb-3">
-                    <textarea id="noteContent" class="form-control border" rows="4" @bind="noteContent" placeholder="Content..."></textarea>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <input type="text" id="noteTitle" class="form-control border" @bind="noteTitle" placeholder="Title..." />
+                    </div>
+                    <div class="mb-3">
+                        <textarea id="noteContent" class="form-control border" rows="4" @bind="noteContent" placeholder="Content..."></textarea>
+                    </div>
                 </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#myModal" @onclick="AddNote">Add</button>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" @onclick="SaveNote">@saveButtonText</button>
+                    <button type="button" class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
+                </div>
             </div>
         </div>
     </div>
-</div>
-
+}
 @code {
     private string noteTitle = string.Empty;
     private string noteContent = string.Empty;
-
     private List<Note> notes = new();
-
-    // Path to JSON file
-    private readonly string jsonFilePath = "Data/notes.json";
+    private string apiUrl = "https://localhost:7035/api/notes";
+    private string modalTitle = "Create a note";
+    private string saveButtonText = "Add";
+    private Note? currentEditingNote = null;
+    private bool isModalVisible = false; // Controls modal visibility
 
     protected override async Task OnInitializedAsync()
     {
-        // Load notes from JSON file when the component initializes
         notes = await LoadNotesAsync();
     }
 
@@ -66,60 +73,128 @@
     {
         try
         {
-            if (!File.Exists(jsonFilePath))
-            {
-                // Create the JSON file if it doesn't exist
-                await SaveNotesAsync(new List<Note>());
-                return new List<Note>();
-            }
-
-            var json = await File.ReadAllTextAsync(jsonFilePath);
-            return JsonSerializer.Deserialize<List<Note>>(json) ?? new List<Note>();
-        }
-        catch (JsonException ex)
-        {
-            Console.WriteLine($"JSON is corrupted: {ex.Message}");
-            await SaveNotesAsync(new List<Note>()); // Reinitialize the file if corrupted
-            return new List<Note>();
-        }
-    }
-
-    private async Task SaveNotesAsync(List<Note> notesToSave)
-    {
-        try
-        {
-            var json = JsonSerializer.Serialize(notesToSave, new JsonSerializerOptions { WriteIndented = true });
-            await File.WriteAllTextAsync(jsonFilePath, json);
+            var response = await Http.GetFromJsonAsync<List<Note>>(apiUrl);
+            return response ?? new List<Note>();
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error writing to JSON: {ex.Message}");
+            Console.WriteLine($"Error loading notes: {ex.Message}");
+            return new List<Note>();
         }
     }
 
     private async Task AddNote()
     {
-        if (!string.IsNullOrWhiteSpace(noteTitle) || !string.IsNullOrWhiteSpace(noteContent))
+        try
         {
-            var newNote = new Note
+            if (!string.IsNullOrWhiteSpace(noteTitle) && !string.IsNullOrWhiteSpace(noteContent))
+            {
+                var newNote = new Note { Title = noteTitle, Content = noteContent };
+                var response = await Http.PostAsJsonAsync(apiUrl, newNote);
+                if (response.IsSuccessStatusCode)
                 {
-                    Title = noteTitle,
-                    Content = noteContent
-                };
+                    notes = await LoadNotesAsync();
+                    CloseModal();
+                }
+                else
+                {
+                    Console.WriteLine("Error adding note");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error adding note: {ex.Message}");
+        }
+    }
 
-            notes.Add(newNote);
+    private async Task UpdateNote()
+    {
+        if (currentEditingNote != null && !string.IsNullOrWhiteSpace(noteTitle) && !string.IsNullOrWhiteSpace(noteContent))
+        {
+            currentEditingNote.Title = noteTitle;
+            currentEditingNote.Content = noteContent;
 
-            // Save the updated notes to JSON
-            await SaveNotesAsync(notes);
+            var response = await Http.PutAsJsonAsync($"{apiUrl}/{currentEditingNote.Id}", currentEditingNote);
+            if (response.IsSuccessStatusCode)
+            {
+                var index = notes.FindIndex(n => n.Id == currentEditingNote.Id);
+                if (index != -1)
+                {
+                    notes[index] = currentEditingNote;
+                }
+                CloseModal();
+            }
+            else
+            {
+                Console.WriteLine("Error updating note");
+            }
+        }
+    }
 
-            // Clear inputs
-            noteTitle = string.Empty;
-            noteContent = string.Empty;
+    private async Task DeleteNote(int id)
+    {
+        var response = await Http.DeleteAsync($"{apiUrl}/{id}");
+        if (response.IsSuccessStatusCode)
+        {
+            var note = notes.FirstOrDefault(n => n.Id == id);
+            if (note != null)
+            {
+                notes.Remove(note);
+            }
+        }
+        else
+        {
+            Console.WriteLine("Error deleting note");
+        }
+    }
+
+    private void EditNote(Note note)
+    {
+        currentEditingNote = note;
+        noteTitle = note.Title;
+        noteContent = note.Content;
+        modalTitle = "Edit note";
+        saveButtonText = "Save";
+        isModalVisible = true; // Show the modal
+    }
+
+    private void OpenCreateModal()
+    {
+        ResetModalFields();
+        isModalVisible = true; // Show the modal
+    }
+
+    private void CloseModal()
+    {
+        ResetModalFields();
+        isModalVisible = false; // Hide the modal
+    }
+
+    private void ResetModalFields()
+    {
+        noteTitle = string.Empty;
+        noteContent = string.Empty;
+        modalTitle = "Create a note";
+        saveButtonText = "Add";
+        currentEditingNote = null;
+    }
+
+    private async Task SaveNote()
+    {
+        if (currentEditingNote == null)
+        {
+            await AddNote();
+        }
+        else
+        {
+            await UpdateNote();
         }
     }
 
     private class Note
     {
+        public int Id { get; set; } // Assuming you have an Id for each note
         public string Title { get; set; } = string.Empty;
         public string Content { get; set; } = string.Empty;
     }

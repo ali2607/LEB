@@ -1,1 +1,10 @@
-[]
+[
+  {
+    "Id": 1,
+    "Title": "string",
+    "Summary": "string",
+    "CreatedDate": "2024-11-21T12:40:23.1650716+01:00",
+    "UpdatedDate": "2024-11-21T12:40:23.16508+01:00",
+    "SummarizedDate": "2024-11-21T11:40:20.307Z"
+  }
+]

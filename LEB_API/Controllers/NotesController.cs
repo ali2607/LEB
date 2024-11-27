@@ -1,72 +1,75 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using LEB_API.Models;
+using System.Collections.Generic;
 using System.Linq;
 
-namespace LEB_API.Controllers
+[ApiController]
+[Route("api/notes")]
+public class NotesController : ControllerBase
 {
-    [ApiController]
-    [Route("[controller]")]
-    public class NotesController : ControllerBase
+    private static readonly List<Note> Notes = new();
+
+    [HttpGet]
+    public IActionResult GetAll()
     {
-        [HttpGet]
-        public IActionResult GetAll()
+        return Ok(Notes);
+    }
+
+    [HttpGet("{id:int}")]
+    public IActionResult GetById(int id)
+    {
+        var note = Notes.FirstOrDefault(n => n.Id == id);
+        return note == null ? NotFound() : Ok(note);
+    }
+
+    [HttpPost]
+    public IActionResult Create([FromBody] Note newNote)
+    {
+        if (string.IsNullOrWhiteSpace(newNote.Title) || string.IsNullOrWhiteSpace(newNote.Content))
         {
-            var notes = JsonHelper.ReadNotes();
-            return Ok(notes);
+            return BadRequest("Title and content cannot be empty.");
         }
 
-        [HttpGet("{id:long}")]
-        public IActionResult GetById(long id)
+        newNote.Id = Notes.Count > 0 ? Notes.Max(n => n.Id) + 1 : 1;
+        Notes.Add(newNote);
+        return CreatedAtAction(nameof(GetById), new { id = newNote.Id }, newNote);
+    }
+
+    [HttpPut("{id:int}")]
+    public IActionResult Update(int id, [FromBody] Note updatedNote)
+    {
+        var existingNote = Notes.FirstOrDefault(n => n.Id == id);
+        if (existingNote == null)
         {
-            var notes = JsonHelper.ReadNotes();
-            var note = notes.FirstOrDefault(n => n.Id == id);
-            if (note == null)
-            {
-                return NotFound();
-            }
-            return Ok(note);
+            return NotFound();
         }
 
-        [HttpPost]
-        public IActionResult Create([FromBody] Notes newNote)
+        if (string.IsNullOrWhiteSpace(updatedNote.Title) || string.IsNullOrWhiteSpace(updatedNote.Content))
         {
-            var notes = JsonHelper.ReadNotes();
-            newNote.Id = notes.Count > 0 ? notes.Max(n => n.Id) + 1 : 1;
-            newNote.CreatedDate = DateTime.Now;
-            newNote.UpdatedDate = DateTime.Now;
-            notes.Add(newNote);
-            JsonHelper.WriteNotes(notes);
-            return CreatedAtAction(nameof(GetById), new { id = newNote.Id }, newNote);
+            return BadRequest("Title and content cannot be empty.");
         }
 
-        [HttpPut("{id:long}")]
-        public IActionResult Update(long id, [FromBody] Notes updatedNote)
+        existingNote.Title = updatedNote.Title;
+        existingNote.Content = updatedNote.Content;
+        return NoContent();
+    }
+
+    [HttpDelete("{id:int}")]
+    public IActionResult Delete(int id)
+    {
+        var note = Notes.FirstOrDefault(n => n.Id == id);
+        if (note == null)
         {
-            var notes = JsonHelper.ReadNotes();
-            var note = notes.FirstOrDefault(n => n.Id == id);
-            if (note == null)
-            {
-                return NotFound();
-            }
-            note.Title = updatedNote.Title;
-            note.Summary = updatedNote.Summary;
-            note.UpdatedDate = DateTime.Now;
-            JsonHelper.WriteNotes(notes);
-            return NoContent();
+            return NotFound();
         }
 
-        [HttpDelete("{id:long}")]
-        public IActionResult Delete(long id)
-        {
-            var notes = JsonHelper.ReadNotes();
-            var note = notes.FirstOrDefault(n => n.Id == id);
-            if (note == null)
-            {
-                return NotFound();
-            }
-            notes.Remove(note);
-            JsonHelper.WriteNotes(notes);
-            return NoContent();
-        }
+        Notes.Remove(note);
+        return NoContent();
+    }
+
+    public class Note
+    {
+        public int Id { get; set; }
+        public string Title { get; set; }
+        public string Content { get; set; }
     }
 }
