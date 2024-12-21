@@ -1,14 +1,21 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using LEB_API.Models;
-using Microsoft.AspNetCore.Mvc.Rendering;
+﻿using LEB_API.Models;
+using LEB_API.Services;
+using Microsoft.AspNetCore.Mvc;
 
+namespace LEB_API.Controllers;
+
+/// <summary>
+/// Controller responsible for managing notes.
+/// Provides endpoints to create, retrieve, update, and delete notes.
+/// </summary>
 [ApiController]
 [Route("api/notes")]
 public class NotesController : ControllerBase
 {
+    /// <summary>
+    /// Retrieves all notes.
+    /// </summary>
+    /// <returns>A list of all notes.</returns>
     [HttpGet]
     public IActionResult GetAll()
     {
@@ -16,6 +23,11 @@ public class NotesController : ControllerBase
         return Ok(notes);
     }
 
+    /// <summary>
+    /// Retrieves a specific note by its ID.
+    /// </summary>
+    /// <param name="id">The ID of the note to retrieve.</param>
+    /// <returns>The note with the specified ID.</returns>
     [HttpGet("{id:long}")]
     public IActionResult GetById(long id)
     {
@@ -24,6 +36,11 @@ public class NotesController : ControllerBase
         return note == null ? NotFound() : Ok(note);
     }
 
+    /// <summary>
+    /// Creates a new note.
+    /// </summary>
+    /// <param name="newNote">The new note to create.</param>
+    /// <returns>The created note with its assigned ID.</returns>
     [HttpPost]
     public IActionResult Create([FromBody] Note newNote)
     {
@@ -44,6 +61,11 @@ public class NotesController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = newNote.Id }, newNote);
     }
 
+    /// <summary>
+    /// Updates an existing note.
+    /// </summary>
+    /// <param name="id">The ID of the note to update.</param>
+    /// <param name="updatedNote">The updated note data.</param>
     [HttpPut("{id:long}")]
     public IActionResult Update(long id, [FromBody] Note updatedNote)
     {
