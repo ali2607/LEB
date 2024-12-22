@@ -24,6 +24,12 @@
                             Created: @note.CreatedDate.ToString("g")<br />
                             Updated: @note.UpdatedDate?.ToString("g")
                         </div>
+                        <button class="btn btn-sm btn-outline-info"
+                                @onclick="() => ShowSummary(index)"
+                                data-bs-toggle="modal"
+                                data-bs-target="#summaryModal">
+                            <i class="fas fa-eye summary-icon no-toggle"></i>
+                        </button>
                         <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteNote(index)">
                             <i class="fas fa-trash"></i>
                         </button>
@@ -122,14 +128,32 @@
     </div>
 </div>
 
+<!-- Summary Modal -->
+<div id="summaryModal" class="modal fade" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Summary</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                @((MarkupString)_selectedSummary)
+            </div>
+        </div>
+    </div>
+</div>
+
 @code {
 
     #region Fields
 
     private List<Note> _notes = new();
     private int? editingNoteIndex = null;
+    private string _selectedSummary = string.Empty;
+
 
     private string _apiUrl = "https://localhost:7292/api/notes";
+    private string _llmApiUrl = "https://localhost:7292/api/LLMHandler";
 
     private BlazoredTextEditor _richEditor = default!;
 
@@ -178,11 +202,15 @@
     private async Task AddNote()
     {
         var contentText = await _richEditor.GetHTML();
+        var summarizeNoteResponse = await Http.GetAsync($"{_llmApiUrl}/summary?noteContent={Uri.EscapeDataString(contentText)}");
+        string summarizedNote = await summarizeNoteResponse.Content.ReadAsStringAsync();
 
         var newNote = new Note
             {
                 Content = contentText,
-                CreatedDate = DateTime.Now,
+                Summary = summarizedNote,
+                SummaryDate = DateTime.Now,
+                CreatedDate = DateTime.Now
             };
 
         var response = await Http.PostAsJsonAsync(_apiUrl, newNote);
@@ -214,6 +242,10 @@
         {
             var noteToUpdate = _notes[editingNoteIndex.Value];
             noteToUpdate.Content = contentText;
+
+            var summarizeResponse = await Http.GetAsync($"{_llmApiUrl}/summary?noteContent={Uri.EscapeDataString(contentText)}");
+            string summarizedNote = await summarizeResponse.Content.ReadAsStringAsync();
+            noteToUpdate.Summary = summarizedNote;
 
             var response = await Http.PutAsJsonAsync($"{_apiUrl}/{noteToUpdate.Id}", noteToUpdate);
             if (response.IsSuccessStatusCode)
@@ -252,6 +284,20 @@
         await _richEditor.LoadHTMLContent(string.Empty);
     }
     #endregion Data Operations
+
+    #region UI Helpers
+
+    /// <summary>
+    /// Displays the summary of a note.
+    /// </summary>
+    /// <param name="index">The index of the note in the list.</param>
+    private void ShowSummary(int index)
+    {
+        var note = _notes[index];
+        _selectedSummary = note.Summary ?? "No summary available.";
+    }
+
+    #endregion UI Helpers
 
     #region Classes
     /// <summary>
