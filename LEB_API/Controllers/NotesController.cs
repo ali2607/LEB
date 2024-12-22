@@ -92,4 +92,23 @@ public class NotesController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>
+    /// Deletes a specific note by its ID.
+    /// </summary>
+    /// <param name="id">The ID of the note to delete.</param>
+    [HttpDelete("{id:long}")]
+    public IActionResult Delete(long id)
+    {
+        var notes = JsonHelper.ReadNotes();
+        var note = notes.FirstOrDefault(n => n.Id == id);
+
+        if (note == null)
+        {
+            return NotFound();
+        }
+
+        notes.Remove(note);
+        JsonHelper.WriteNotes(notes);
+        return NoContent();
+    }
 }

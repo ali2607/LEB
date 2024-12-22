@@ -1,5 +1,7 @@
 ﻿@page "/"
 @using Blazored.TextEditor
+@using Newtonsoft.Json;
+@inject HttpClient Http
 
 <PageTitle>Home</PageTitle>
 
@@ -21,6 +23,9 @@
                             Created: @note.CreatedDate.ToString("g")<br />
                             Updated: @note.UpdatedDate?.ToString("g")
                         </div>
+                        <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteNote(index)">
+                            <i class="fas fa-trash"></i>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -123,13 +128,40 @@
     private List<Note> _notes = new();
     private int? editingNoteIndex = null;
 
+    private string _apiUrl = "https://localhost:7292/api/notes";
+
     private BlazoredTextEditor _richEditor = default!;
 
     #endregion Fields
 
+
     #region Data Operations
+
     /// <summary>
-    /// Adds a new note.
+    /// Fetches all notes from the backend API.
+    /// </summary>
+    private async Task FetchNotes()
+    {
+        try
+        {
+            var response = await Http.GetAsync(_apiUrl);
+            if (!response.IsSuccessStatusCode)
+            {
+                Console.WriteLine($"API returned status: {response.StatusCode}");
+                return;
+            }
+
+            var responseBody = await response.Content.ReadAsStringAsync();
+            _notes = JsonConvert.DeserializeObject<List<Note>>(responseBody) ?? new();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching notes: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Adds a new note by first summarizing it using the LLM, then saving it to the backend API.
     /// </summary>
     private async Task AddNote()
     {
@@ -138,12 +170,14 @@
         var newNote = new Note
             {
                 Content = contentText,
-                Summary = "",
-                SummaryDate = DateTime.Now,
                 CreatedDate = DateTime.Now,
             };
 
-        _notes.Add(newNote);
+        var response = await Http.PostAsJsonAsync(_apiUrl, newNote);
+        if (response.IsSuccessStatusCode)
+        {
+            await FetchNotes();
+        }
     }
 
     /// <summary>
@@ -164,6 +198,20 @@
         }
 
         editingNoteIndex = null;
+    }
+
+    /// <summary>
+    /// Deletes a note from the backend API and updates the local collection.
+    /// </summary>
+    /// <param name="index">The index of the note to delete.</param>
+    private async Task DeleteNote(int index)
+    {
+        var noteToDelete = _notes[index];
+        var response = await Http.DeleteAsync($"{_apiUrl}/{noteToDelete.Id}");
+        if (response.IsSuccessStatusCode)
+        {
+            _notes.RemoveAt(index);
+        }
     }
 
     /// <summary>
