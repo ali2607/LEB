@@ -134,6 +134,17 @@
 
     #endregion Fields
 
+    #region Lifecycle
+
+    /// <summary>
+    /// Fetches all notes from the API when the component initializes.
+    /// </summary>
+    protected override async Task OnInitializedAsync()
+    {
+        await FetchNotes();
+    }
+
+    #endregion Lifecycle
 
     #region Data Operations
 
