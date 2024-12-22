@@ -1,6 +1,7 @@
 ﻿@page "/"
 @using Blazored.TextEditor
 @using Newtonsoft.Json;
+@inject IJSRuntime JSRuntime
 @inject HttpClient Http
 
 <PageTitle>Home</PageTitle>
@@ -37,6 +38,28 @@
                 </div>
             </div>
         }
+    </div>
+</div>
+
+<!-- Query Input -->
+<div class="fixed-bottom bg-white py-3">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <form @onsubmit="SendQuery" class="d-flex">
+                    <input type="text"
+                           class="form-control rounded-pill shadow-sm search-input"
+                           @bind="_userQuery"
+                           placeholder="Ask something about your notes..."
+                           style="font-size: 1.1rem; padding: 12px; border: 2px solid #ccc;" />
+                    <button class="btn btn-primary rounded-pill shadow-sm ms-2 zoom-btn"
+                            type="submit"
+                            style="font-size: 1.1rem; padding: 10px 20px; display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -143,10 +166,27 @@
     </div>
 </div>
 
+<!-- Information Modal -->
+<div id="infoModal" class="modal fade" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:600px;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Information</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                @((MarkupString)_infoModalContent)
+            </div>
+        </div>
+    </div>
+</div>
+
 @code {
 
     #region Fields
 
+    private string _userQuery = string.Empty;
+    private string _infoModalContent = string.Empty;
     private List<Note> _notes = new();
     private int? editingNoteIndex = null;
     private string _selectedSummary = string.Empty;
@@ -285,6 +325,121 @@
     }
     #endregion Data Operations
 
+    #region Query Handling
+
+    /// <summary>
+    /// Sends the user's query and notes to the LLM, processes the response, and updates notes if necessary.
+    /// </summary>
+    private async Task SendQuery()
+    {
+        if (string.IsNullOrWhiteSpace(_userQuery))
+        {
+            return;
+        }
+
+        StateHasChanged();
+
+        try
+        {
+            var manipulationRequest = new ManipulationRequest
+                {
+                    Request = _userQuery,
+                    Notes = _notes
+                };
+
+            var response = await Http.PostAsJsonAsync(_llmApiUrl + "/manipulation-query", manipulationRequest);
+            if (response.IsSuccessStatusCode)
+            {
+                var resultContent = await response.Content.ReadAsStringAsync();
+                var apiResult = JsonConvert.DeserializeObject<dynamic>(resultContent)
+                                ?? throw new Exception("Couldn't deserialize the response.");
+                string llmResponse = apiResult.result;
+                var llmResult = JsonConvert.DeserializeObject<LlmManipulationResponse>(llmResponse)
+                                ?? throw new Exception("Couldn't deserialize the LLM response.");
+
+                if (llmResult.Type == "information")
+                {
+                    _infoModalContent = llmResult.Content;
+                    await JSRuntime.InvokeVoidAsync("OpenModalWithAnimation", "#infoModal");
+                }
+                else if (llmResult.Type == "modification")
+                {
+                    await HandleModificationResponse(llmResult.Content);
+                }
+            }
+            else
+            {
+                Console.WriteLine("LLM manipulation request failed: " + response.StatusCode);
+            }
+        }
+        finally
+        {
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>
+    /// Processes a 'modification' type response from the LLM by updating or creating notes accordingly.
+    /// </summary>
+    /// <param name="content">The content of the LLM response representing modified notes.</param>
+    private async Task HandleModificationResponse(string content)
+    {
+        try
+        {
+            var modifiedNotes = JsonConvert.DeserializeObject<List<Note>>(content);
+            if (modifiedNotes != null)
+            {
+                foreach (var modifiedNote in modifiedNotes)
+                {
+                    var existingNote = _notes.FirstOrDefault(n => n.Id == modifiedNote.Id);
+
+                    if (existingNote != null)
+                    {
+                        // If content has changed, update UpdatedDate and save changes
+                        if (existingNote.Content != modifiedNote.Content)
+                        {
+                            modifiedNote.UpdatedDate = DateTime.Now;
+                            modifiedNote.CreatedDate = existingNote.CreatedDate;
+
+                            var modifiedResponse = await Http.PutAsJsonAsync($"{_apiUrl}/{modifiedNote.Id}", modifiedNote);
+                            if (!modifiedResponse.IsSuccessStatusCode)
+                            {
+                                Console.WriteLine($"Error saving note with ID {modifiedNote.Id}: {modifiedResponse.ReasonPhrase}");
+                            }
+                        }
+                        else
+                        {
+                            // Preserve existing timestamps if content hasn't changed
+                            modifiedNote.CreatedDate = existingNote.CreatedDate;
+                            modifiedNote.UpdatedDate = existingNote.UpdatedDate;
+                        }
+                    }
+                    else
+                    {
+                        // New note addition
+                        modifiedNote.CreatedDate = DateTime.Now;
+                        modifiedNote.UpdatedDate = null;
+
+                        var saveResponse = await Http.PostAsJsonAsync(_apiUrl, modifiedNote);
+                        if (!saveResponse.IsSuccessStatusCode)
+                        {
+                            Console.WriteLine($"Error adding the note: {saveResponse.ReasonPhrase}");
+                        }
+                    }
+                }
+
+                // Refresh notes after saving changes
+                await FetchNotes();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Error parsing modified notes: " + ex.Message);
+        }
+    }
+
+    #endregion Query Handling
+
     #region UI Helpers
 
     /// <summary>
@@ -334,6 +489,40 @@
         /// Gets or sets the timestamp when the note was last updated.
         /// </summary>
         public DateTime? UpdatedDate { get; set; }
+    }
+
+    /// <summary>
+    /// Represents the response from the LLM for manipulations or information retrieval.
+    /// </summary>
+    private class LlmManipulationResponse
+    {
+        /// <summary>
+        /// The type of the response. It can be 'information' or 'modification'.
+        /// </summary>
+        [JsonProperty("type")]
+        public string Type { get; set; } = string.Empty;
+
+        /// <summary>
+        /// The content of the LLM's response (either a message or modified notes).
+        /// </summary>
+        [JsonProperty("content")]
+        public string Content { get; set; } = string.Empty;
+    }
+
+    /// <summary>
+    /// Encapsulates a request sent to the LLM for note manipulations based on a user query.
+    /// </summary>
+    private class ManipulationRequest
+    {
+        /// <summary>
+        /// The user's query or request to the LLM.
+        /// </summary>
+        public string Request { get; set; } = string.Empty;
+
+        /// <summary>
+        /// The collection of notes to be considered by the LLM.
+        /// </summary>
+        public List<Note> Notes { get; set; } = new();
     }
     #endregion Classes
 
