@@ -14,6 +14,7 @@
             <div class="col-md-6 col-lg-4 col-xl-3">
                 <div class="card note-card h-100">
                     <div class="card-body" style="cursor: pointer;"
+                         @onclick="() => EditNote(index)"
                          data-bs-toggle="modal"
                          data-bs-target="#myModal">
                         @((MarkupString)(note.Content.Length > 200 ? note.Content.Substring(0, 200) + "..." : note.Content))
@@ -192,6 +193,17 @@
     }
 
     /// <summary>
+    /// Loads a note's content into the editor for editing.
+    /// </summary>
+    /// <param name="index">The index of the note in the list.</param>
+    private async Task EditNote(int index)
+    {
+        editingNoteIndex = index;
+        var noteToEdit = _notes[index];
+        await _richEditor.LoadHTMLContent(noteToEdit.Content);
+    }
+
+    /// <summary>
     /// Saves modifications to an existing note or creates a new one if none is being edited.
     /// </summary>
     private async Task SaveNote()
@@ -202,6 +214,12 @@
         {
             var noteToUpdate = _notes[editingNoteIndex.Value];
             noteToUpdate.Content = contentText;
+
+            var response = await Http.PutAsJsonAsync($"{_apiUrl}/{noteToUpdate.Id}", noteToUpdate);
+            if (response.IsSuccessStatusCode)
+            {
+                await FetchNotes();
+            }
         }
         else
         {
