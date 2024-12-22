@@ -1,4 +1,5 @@
 ﻿@page "/"
+@using Blazored.TextEditor
 
 <PageTitle>Home</PageTitle>
 
@@ -27,13 +28,153 @@
     </div>
 </div>
 
+<!-- Create Note Button (+) -->
+<button type="button"
+        class="btn btn-primary btn-lg rounded-circle shadow position-fixed zoom-button"
+        @onclick="ResetEditor"
+        data-bs-toggle="modal"
+        data-bs-target="#myModal"
+        style="bottom: 20px; right: 20px; width: 60px; height: 60px;">
+    <i class="fas fa-plus fs-4"></i>
+</button>
+
+<!-- No Notes Overlay -->
+@if (!_notes.Any())
+{
+    <div class="no-notes-overlay">
+        <div class="text-arrow-container">
+            <p class="no-notes-text">Create a note</p>
+            <img src="images/arrow.png" class="arrow-image" alt="arrow" />
+        </div>
+    </div>
+}
+
+<!-- Note Editor Modal -->
+<div id="myModal" class="modal fade">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-body p-0 d-flex flex-column">
+                <div class="editor-container flex-grow-1 d-flex flex-column">
+                    <BlazoredTextEditor Placeholder="Write your note !"
+                                        BottomToolbar="true"
+                                        @ref="_richEditor"
+                                        ToolbarCSSClass="rounded colored-border"
+                                        ToolbarCssStyle="background: blackgrey; width: 100%;">
+                        <ToolbarContent>
+                            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                                <div class="toolbar-group">
+                                    <select class="ql-header">
+                                        <option selected=""></option>
+                                        <option value="1"></option>
+                                        <option value="2"></option>
+                                        <option value="3"></option>
+                                        <option value="4"></option>
+                                        <option value="5"></option>
+                                    </select>
+                                    <span class="ql-formats">
+                                        <button class="ql-bold"></button>
+                                        <button class="ql-italic"></button>
+                                        <button class="ql-underline"></button>
+                                        <button class="ql-strike"></button>
+                                    </span>
+                                </div>
+                                <div class="separator"></div>
+                                <div class="toolbar-group">
+                                    <span class="ql-formats">
+                                        <select class="ql-color"></select>
+                                        <select class="ql-background"></select>
+                                    </span>
+                                </div>
+                                <div class="separator"></div>
+                                <div class="toolbar-group">
+                                    <span class="ql-formats">
+                                        <button class="ql-list" value="ordered"></button>
+                                        <button class="ql-list" value="bullet"></button>
+                                    </span>
+                                </div>
+                                <div class="separator"></div>
+                                <div class="toolbar-group">
+                                    <span class="ql-formats">
+                                        <button class="ql-link"></button>
+                                    </span>
+                                </div>
+                                <button type="button"
+                                        class="btn btn-primary text-white btn-add-animation"
+                                        @onclick="editingNoteIndex.HasValue ? SaveNote : AddNote"
+                                        data-bs-dismiss="modal"
+                                        style="padding: 0 10px; display: inline-block; width: auto; vertical-align: middle;">
+                                    @(editingNoteIndex.HasValue ? "Save" : "Add")
+                                </button>
+                            </div>
+                        </ToolbarContent>
+                        <EditorContent>
+                        </EditorContent>
+                    </BlazoredTextEditor>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 @code {
 
     #region Fields
 
     private List<Note> _notes = new();
+    private int? editingNoteIndex = null;
+
+    private BlazoredTextEditor _richEditor = default!;
 
     #endregion Fields
+
+    #region Data Operations
+    /// <summary>
+    /// Adds a new note.
+    /// </summary>
+    private async Task AddNote()
+    {
+        var contentText = await _richEditor.GetHTML();
+
+        var newNote = new Note
+            {
+                Content = contentText,
+                Summary = "",
+                SummaryDate = DateTime.Now,
+                CreatedDate = DateTime.Now,
+            };
+
+        _notes.Add(newNote);
+    }
+
+    /// <summary>
+    /// Saves modifications to an existing note or creates a new one if none is being edited.
+    /// </summary>
+    private async Task SaveNote()
+    {
+        var contentText = await _richEditor.GetHTML();
+
+        if (editingNoteIndex.HasValue)
+        {
+            var noteToUpdate = _notes[editingNoteIndex.Value];
+            noteToUpdate.Content = contentText;
+        }
+        else
+        {
+            await AddNote();
+        }
+
+        editingNoteIndex = null;
+    }
+
+    /// <summary>
+    /// Resets the editor content to empty (for creating a new note).
+    /// </summary>
+    private async Task ResetEditor()
+    {
+        editingNoteIndex = null;
+        await _richEditor.LoadHTMLContent(string.Empty);
+    }
+    #endregion Data Operations
 
     #region Classes
     /// <summary>
