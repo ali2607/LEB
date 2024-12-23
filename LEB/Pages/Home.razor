@@ -6,6 +6,17 @@
 
 <PageTitle>Home</PageTitle>
 
+<!-- Loading Overlay (when generating a response) -->
+@if (_isLoading)
+{
+    <div class="loading-overlay">
+        <div class="loading-content">
+            <div class="big-spinner"></div>
+            <div class="loading-text">Génération de la réponse en cours...</div>
+        </div>
+    </div>
+}
+
 <!-- Notes Display -->
 <div class="container mt-5 pt-5 main-content">
     <div class="row g-3 justify-content-center">
@@ -188,6 +199,8 @@
     private string _userQuery = string.Empty;
     private string _infoModalContent = string.Empty;
     private List<Note> _notes = new();
+    private bool _showInfoModal = false;
+    private bool _isLoading = false;
     private int? editingNoteIndex = null;
     private string _selectedSummary = string.Empty;
 
@@ -337,6 +350,7 @@
             return;
         }
 
+        _isLoading = true;
         StateHasChanged();
 
         try
@@ -374,6 +388,7 @@
         }
         finally
         {
+            _isLoading = false;
             StateHasChanged();
         }
     }
@@ -450,6 +465,15 @@
     {
         var note = _notes[index];
         _selectedSummary = note.Summary ?? "No summary available.";
+    }
+
+    /// <summary>
+    /// Closes the information modal by resetting related fields.
+    /// </summary>
+    private void CloseInfoModal()
+    {
+        _showInfoModal = false;
+        _infoModalContent = string.Empty;
     }
 
     #endregion UI Helpers
