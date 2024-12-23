@@ -1,0 +1,23 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: LEB_API/Dockerfile
+    container_name: leb_api_container
+    ports:
+      - "7292:8080"
+    environment:
+      - ApiKeys__MyApiKey=MY_API_KEY
+    volumes:
+      - .\LEB_API\notes.json:/app/notes.json
+
+
+  front:
+    build:
+      context: ./LEB
+      dockerfile: Dockerfile
+    container_name: leb_front_container
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
